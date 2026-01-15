@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            compiler: g++-12
+            cxx: g++-12
+          - os: ubuntu-latest
+            compiler: clang-17
+            cxx: clang++-17
+          - os: macos-latest
+            compiler: clang
+            cxx: clang++
+          - os: windows-latest
+            compiler: msvc
+            cxx: cl
+
+    runs-on: ${{ matrix.os }}
+    name: ${{ matrix.os }} / ${{ matrix.compiler }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install GCC (Linux)
+        if: matrix.os == 'ubuntu-latest' && startsWith(matrix.compiler, 'g++')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.compiler }}
+
+      - name: Install Clang (Linux)
+        if: matrix.os == 'ubuntu-latest' && startsWith(matrix.compiler, 'clang')
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.compiler }}
+
+      - name: Configure (Unix)
+        if: matrix.os != 'windows-latest'
+        env:
+          CXX: ${{ matrix.cxx }}
+        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON
+
+      - name: Configure (Windows)
+        if: matrix.os == 'windows-latest'
+        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON
+
+      - name: Build
+        run: cmake --build build --config Release
+
+      - name: Test (Unix)
+        if: matrix.os != 'windows-latest'
+        run: ctest --test-dir build --output-on-failure
+
+      - name: Test (Windows)
+        if: matrix.os == 'windows-latest'
+        run: ctest --test-dir build -C Release --output-on-failure
