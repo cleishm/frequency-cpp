@@ -5,12 +5,12 @@
  * @brief Frequency types and arithmetic, modeled after std::chrono.
  */
 
-#include <ratio>
-#include <concepts>
-#include <limits>
-#include <compare>
-#include <cstdint>
 #include <cmath>
+#include <compare>
+#include <concepts>
+#include <cstdint>
+#include <limits>
+#include <ratio>
 #include <string>
 #if __has_include(<format>) && defined(__cpp_lib_format)
 #include <format>
@@ -144,22 +144,15 @@ concept distance_like = requires(T t) {
  * @tparam Rep The representation type.
  */
 template<typename Rep>
-struct frequency_values
-{
+struct frequency_values {
     /** @brief Returns a zero frequency. */
-    static constexpr Rep
-    zero() noexcept
-    { return Rep(0); }
+    static constexpr Rep zero() noexcept { return Rep(0); }
 
     /** @brief Returns the maximum representable frequency. */
-    static constexpr Rep
-    max() noexcept
-    { return std::numeric_limits<Rep>::max(); }
+    static constexpr Rep max() noexcept { return std::numeric_limits<Rep>::max(); }
 
     /** @brief Returns the minimum representable frequency. */
-    static constexpr Rep
-    min() noexcept
-    { return std::numeric_limits<Rep>::lowest(); }
+    static constexpr Rep min() noexcept { return std::numeric_limits<Rep>::lowest(); }
 };
 
 template<typename T>
@@ -207,8 +200,12 @@ consteval intmax_t _gcd(intmax_t m, intmax_t n) noexcept {
 // Runtime GCD for integer types (using Euclidean algorithm)
 template<typename T>
 constexpr T _runtime_gcd(T m, T n) noexcept {
-    if (m < 0) m = -m;
-    if (n < 0) n = -n;
+    if (m < 0) {
+        m = -m;
+    }
+    if (n < 0) {
+        n = -n;
+    }
     while (n != 0) {
         T rem = m % n;
         m = n;
@@ -298,9 +295,9 @@ public:
      * @param r     The tick count.
      */
     template<typename Rep2>
-    requires std::convertible_to<const Rep2&, rep>
-            && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
-    constexpr explicit frequency(const Rep2& r) : _r(static_cast<rep>(r)) {}
+        requires std::convertible_to<const Rep2&, rep> && (treat_as_inexact_v<rep> || !treat_as_inexact_v<Rep2>)
+    constexpr explicit frequency(const Rep2& r)
+        : _r(static_cast<rep>(r)) {}
 
     /**
      * @brief Constructs from another frequency with different representation or precision.
@@ -313,10 +310,10 @@ public:
      * @param f           The source frequency.
      */
     template<typename Rep2, typename Precision2>
-    requires std::convertible_to<const Rep2&, rep> && (treat_as_inexact_v<rep>
-            || (_harmonic_precision<Precision2, precision> && !treat_as_inexact_v<Rep2>))
+        requires std::convertible_to<const Rep2&, rep> &&
+        (treat_as_inexact_v<rep> || (_harmonic_precision<Precision2, precision> && !treat_as_inexact_v<Rep2>))
     constexpr frequency(const frequency<Rep2, Precision2>& f)
-            : _r(frequency_cast<frequency>(f).count()) { }
+        : _r(frequency_cast<frequency>(f).count()) {}
 
     /**
      * @brief Explicit constructor for lossy precision conversions.
@@ -326,11 +323,10 @@ public:
      * @param f           The source frequency.
      */
     template<typename Rep2, typename Precision2>
-    requires (!std::is_same_v<frequency, frequency<Rep2, Precision2>>)
-            && (!treat_as_inexact_v<rep>)
-            && (!_harmonic_precision<Precision2, precision>)
+        requires(!std::is_same_v<frequency, frequency<Rep2, Precision2>>) && (!treat_as_inexact_v<rep>) &&
+        (!_harmonic_precision<Precision2, precision>)
     constexpr explicit frequency(const frequency<Rep2, Precision2>& f)
-            : _r(frequency_cast<frequency>(f).count()) { }
+        : _r(frequency_cast<frequency>(f).count()) {}
 
     ~frequency() = default;
     frequency& operator=(const frequency&) = default;
@@ -338,68 +334,70 @@ public:
     /** @brief Returns the tick count. */
     constexpr rep count() const { return _r; }
 
-    constexpr frequency<typename std::common_type<rep>::type, precision>
-    operator+() const
-    { return frequency<typename std::common_type<rep>::type, precision>(_r); }
+    constexpr frequency<typename std::common_type<rep>::type, precision> operator+() const {
+        return frequency<typename std::common_type<rep>::type, precision>(_r);
+    }
 
-    constexpr frequency<typename std::common_type<rep>::type, precision>
-    operator-() const
-    { return frequency<typename std::common_type<rep>::type, precision>(-_r); }
+    constexpr frequency<typename std::common_type<rep>::type, precision> operator-() const {
+        return frequency<typename std::common_type<rep>::type, precision>(-_r);
+    }
 
-    constexpr frequency&
-    operator++()
-    { ++_r; return *this; }
+    constexpr frequency& operator++() {
+        ++_r;
+        return *this;
+    }
 
-    constexpr frequency
-    operator++(int)
-    { return frequency(_r++); }
+    constexpr frequency operator++(int) { return frequency(_r++); }
 
-    constexpr frequency&
-    operator--()
-    { --_r; return *this; }
+    constexpr frequency& operator--() {
+        --_r;
+        return *this;
+    }
 
-    constexpr frequency
-    operator--(int)
-    { return frequency(_r--); }
+    constexpr frequency operator--(int) { return frequency(_r--); }
 
-    constexpr frequency&
-    operator+=(const frequency& f)
-    { _r += f.count(); return *this; }
+    constexpr frequency& operator+=(const frequency& f) {
+        _r += f.count();
+        return *this;
+    }
 
-    constexpr frequency&
-    operator-=(const frequency& f)
-    { _r -= f.count(); return *this; }
+    constexpr frequency& operator-=(const frequency& f) {
+        _r -= f.count();
+        return *this;
+    }
 
-    constexpr frequency&
-    operator*=(const rep& r)
-    { _r *= r; return *this; }
+    constexpr frequency& operator*=(const rep& r) {
+        _r *= r;
+        return *this;
+    }
 
-    constexpr frequency&
-    operator/=(const rep& r)
-    { _r /= r; return *this; }
+    constexpr frequency& operator/=(const rep& r) {
+        _r /= r;
+        return *this;
+    }
 
     constexpr frequency& operator%=(const rep& r)
-    requires (!treat_as_inexact_v<rep>)
-    { _r %= r; return *this; }
+        requires(!treat_as_inexact_v<rep>)
+    {
+        _r %= r;
+        return *this;
+    }
 
     constexpr frequency& operator%=(const frequency& f)
-    requires (!treat_as_inexact_v<rep>)
-    { _r %= f.count(); return *this; }
+        requires(!treat_as_inexact_v<rep>)
+    {
+        _r %= f.count();
+        return *this;
+    }
 
     /** @brief Returns a zero frequency. */
-    static constexpr frequency
-    zero() noexcept
-    { return frequency(frequency_values<rep>::zero()); }
+    static constexpr frequency zero() noexcept { return frequency(frequency_values<rep>::zero()); }
 
     /** @brief Returns the minimum representable frequency. */
-    static constexpr frequency
-    min() noexcept
-    { return frequency(frequency_values<rep>::min()); }
+    static constexpr frequency min() noexcept { return frequency(frequency_values<rep>::min()); }
 
     /** @brief Returns the maximum representable frequency. */
-    static constexpr frequency
-    max() noexcept
-    { return frequency(frequency_values<rep>::max()); }
+    static constexpr frequency max() noexcept { return frequency(frequency_values<rep>::max()); }
 
     /**
      * @brief Returns the period of this frequency as a duration.
@@ -449,11 +447,11 @@ public:
         if constexpr (std::is_integral_v<rep> && std::is_integral_v<duration_rep>) {
             using cr = std::common_type_t<duration_rep, rep, intmax_t>;
 
-            #ifdef __SIZEOF_INT128__
-                using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
-            #else
-                using wider_t = intmax_t;
-            #endif
+#ifdef __SIZEOF_INT128__
+            using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
+#else
+            using wider_t = intmax_t;
+#endif
 
             wider_t count = static_cast<wider_t>(_r);
 
@@ -493,7 +491,11 @@ public:
             } else if constexpr (cf::num == 1) {
                 return Duration(static_cast<duration_rep>(1.0 / (static_cast<double>(_r) * static_cast<cr>(cf::den))));
             } else {
-                return Duration(static_cast<duration_rep>(static_cast<cr>(cf::num) / (static_cast<double>(_r) * static_cast<cr>(cf::den))));
+                return Duration(
+                    static_cast<duration_rep>(
+                        static_cast<cr>(cf::num) / (static_cast<double>(_r) * static_cast<cr>(cf::den))
+                    )
+                );
             }
         }
     }
@@ -510,9 +512,7 @@ public:
      * @param n The harmonic number (must be positive).
      * @return A frequency representing the nth harmonic.
      */
-    constexpr frequency harmonic(unsigned int n) const {
-        return *this * n;
-    }
+    constexpr frequency harmonic(unsigned int n) const { return *this * n; }
 
     /**
      * @brief Returns the nth subharmonic of this frequency.
@@ -674,7 +674,8 @@ public:
         } else if constexpr (time_cf::num == 1) {
             period_in_duration_units = static_cast<time_cr>(wave_period) / static_cast<time_cr>(time_cf::den);
         } else {
-            period_in_duration_units = static_cast<time_cr>(wave_period) * static_cast<time_cr>(time_cf::num) / static_cast<time_cr>(time_cf::den);
+            period_in_duration_units = static_cast<time_cr>(wave_period) * static_cast<time_cr>(time_cf::num) /
+                static_cast<time_cr>(time_cf::den);
         }
 
         // Wavelength = period / time_per_unit_distance
@@ -705,8 +706,8 @@ public:
         }
 
         // Convert frequency to Hz
-        double freq_hz = static_cast<double>(_r) * static_cast<double>(precision::num) /
-                        static_cast<double>(precision::den);
+        double freq_hz =
+            static_cast<double>(_r) * static_cast<double>(precision::num) / static_cast<double>(precision::den);
 
         // Calculate wavelength in meters: wavelength = velocity / frequency
         double wavelength_meters = velocity / freq_hz;
@@ -714,8 +715,8 @@ public:
         // Convert from meters to the target distance type's units
         // Distance::period represents the ratio of the distance unit to meters
         using distance_period = typename Distance::period;
-        double wavelength_in_units = wavelength_meters * static_cast<double>(distance_period::den) /
-                                    static_cast<double>(distance_period::num);
+        double wavelength_in_units =
+            wavelength_meters * static_cast<double>(distance_period::den) / static_cast<double>(distance_period::num);
 
         return Distance(static_cast<typename Distance::rep>(wavelength_in_units));
     }
@@ -738,8 +739,7 @@ private:
  * @return The converted frequency.
  */
 template<typename ToFreq, typename Rep, typename Precision>
-constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f)
-{
+constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f) {
     if constexpr (std::is_same_v<ToFreq, frequency<Rep, Precision>>) {
         return f;
     } else {
@@ -750,11 +750,11 @@ constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f)
 
         // Use wider intermediate type for integer-to-integer conversions
         if constexpr (std::is_integral_v<Rep> && std::is_integral_v<to_rep>) {
-            #ifdef __SIZEOF_INT128__
-                using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
-            #else
-                using wider_t = intmax_t;
-            #endif
+#ifdef __SIZEOF_INT128__
+            using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
+#else
+            using wider_t = intmax_t;
+#endif
 
             if constexpr (cf::den == 1 && cf::num == 1) {
                 return ToFreq(static_cast<to_rep>(f.count()));
@@ -784,7 +784,11 @@ constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f)
             } else if constexpr (cf::num == 1) {
                 return ToFreq(static_cast<to_rep>(static_cast<cr>(f.count()) / static_cast<cr>(cf::den)));
             } else {
-                return ToFreq(static_cast<to_rep>(static_cast<cr>(f.count()) * static_cast<cr>(cf::num) / static_cast<cr>(cf::den)));
+                return ToFreq(
+                    static_cast<to_rep>(
+                        static_cast<cr>(f.count()) * static_cast<cr>(cf::num) / static_cast<cr>(cf::den)
+                    )
+                );
             }
         }
     }
@@ -810,8 +814,7 @@ constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f)
  * @endcode
  */
 template<typename ToFreq, typename Rep, typename Precision>
-constexpr ToFreq floor(const frequency<Rep, Precision>& f)
-{
+constexpr ToFreq floor(const frequency<Rep, Precision>& f) {
     using to_rep = typename ToFreq::rep;
     ToFreq result = frequency_cast<ToFreq>(f);
 
@@ -844,8 +847,7 @@ constexpr ToFreq floor(const frequency<Rep, Precision>& f)
  * @endcode
  */
 template<typename ToFreq, typename Rep, typename Precision>
-constexpr ToFreq ceil(const frequency<Rep, Precision>& f)
-{
+constexpr ToFreq ceil(const frequency<Rep, Precision>& f) {
     using to_rep = typename ToFreq::rep;
     ToFreq result = frequency_cast<ToFreq>(f);
 
@@ -881,8 +883,7 @@ constexpr ToFreq ceil(const frequency<Rep, Precision>& f)
  * @endcode
  */
 template<typename ToFreq, typename Rep, typename Precision>
-constexpr ToFreq round(const frequency<Rep, Precision>& f)
-{
+constexpr ToFreq round(const frequency<Rep, Precision>& f) {
     using to_rep = typename ToFreq::rep;
 
     if constexpr (std::is_integral_v<Rep> && std::is_integral_v<to_rep>) {
@@ -943,8 +944,7 @@ constexpr ToFreq round(const frequency<Rep, Precision>& f)
  */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto beat(const frequency<Rep1, Precision1>& f1, const frequency<Rep2, Precision2>& f2)
-    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>
-{
+    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>> {
     using cf = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return abs(cf(f1) - cf(f2));
 }
@@ -965,16 +965,14 @@ constexpr auto beat(const frequency<Rep1, Precision1>& f1, const frequency<Rep2,
  * @endcode
  */
 template<typename Rep, typename Precision>
-constexpr frequency<Rep, Precision> abs(const frequency<Rep, Precision>& f)
-{
+constexpr frequency<Rep, Precision> abs(const frequency<Rep, Precision>& f) {
     return f >= frequency<Rep, Precision>::zero() ? f : -f;
 }
 
 /** @brief Returns the sum of two frequencies. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator+(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>
-{
+    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>> {
     using cf = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return cf(cf(lhs).count() + cf(rhs).count());
 }
@@ -982,37 +980,33 @@ constexpr auto operator+(const frequency<Rep1, Precision1>& lhs, const frequency
 /** @brief Returns the difference of two frequencies. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator-(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>
-{
+    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>> {
     using cf = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return cf(cf(lhs).count() - cf(rhs).count());
 }
 
 /** @brief Multiplies a frequency by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
+    requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator*(const frequency<Rep1, Precision>& f, const Rep2& r)
-    -> frequency<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> frequency<std::common_type_t<Rep1, Rep2>, Precision> {
     using cf = frequency<std::common_type_t<Rep1, Rep2>, Precision>;
     return cf(cf(f).count() * r);
 }
 
 /** @brief Multiplies a scalar by a frequency. */
 template<typename Rep1, typename Rep2, typename Precision>
-requires not_frequency<Rep1> && std::convertible_to<const Rep1&, std::common_type_t<Rep1, Rep2>>
+    requires not_frequency<Rep1> && std::convertible_to<const Rep1&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator*(const Rep1& r, const frequency<Rep2, Precision>& f)
-    -> frequency<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> frequency<std::common_type_t<Rep1, Rep2>, Precision> {
     return f * r;
 }
 
 /** @brief Divides a frequency by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
+    requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
 constexpr auto operator/(const frequency<Rep1, Precision>& f, const Rep2& s)
-    -> frequency<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> frequency<std::common_type_t<Rep1, Rep2>, Precision> {
     using cf = frequency<std::common_type_t<Rep1, Rep2>, Precision>;
     return cf(cf(f).count() / s);
 }
@@ -1020,44 +1014,39 @@ constexpr auto operator/(const frequency<Rep1, Precision>& f, const Rep2& s)
 /** @brief Divides two frequencies, returning a scalar. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
 constexpr auto operator/(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-    -> std::common_type_t<Rep1, Rep2>
-{
+    -> std::common_type_t<Rep1, Rep2> {
     using cf = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return cf(lhs).count() / cf(rhs).count();
 }
 
 /** @brief Returns the remainder of dividing a frequency by a scalar. */
 template<typename Rep1, typename Precision, typename Rep2>
-requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>>
-        && (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
+    requires not_frequency<Rep2> && std::convertible_to<const Rep2&, std::common_type_t<Rep1, Rep2>> &&
+    (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
 constexpr auto operator%(const frequency<Rep1, Precision>& f, const Rep2& s)
-    -> frequency<std::common_type_t<Rep1, Rep2>, Precision>
-{
+    -> frequency<std::common_type_t<Rep1, Rep2>, Precision> {
     using cf = frequency<std::common_type_t<Rep1, Rep2>, Precision>;
     return cf(cf(f).count() % s);
 }
 
 /** @brief Returns the remainder of dividing two frequencies. */
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-requires (!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
+    requires(!treat_as_inexact_v<Rep1> && !treat_as_inexact_v<Rep2>)
 constexpr auto operator%(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>
-{
+    -> std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>> {
     using cf = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return cf(cf(lhs).count() % cf(rhs).count());
 }
 
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-constexpr bool operator==(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-{
+constexpr bool operator==(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs) {
     using ct = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return ct(lhs).count() == ct(rhs).count();
 }
 
 template<typename Rep1, typename Precision1, typename Rep2, typename Precision2>
-requires std::three_way_comparable<std::common_type_t<Rep1, Rep2>>
-constexpr auto operator<=>(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs)
-{
+    requires std::three_way_comparable<std::common_type_t<Rep1, Rep2>>
+constexpr auto operator<=>(const frequency<Rep1, Precision1>& lhs, const frequency<Rep2, Precision2>& rhs) {
     using ct = std::common_type_t<frequency<Rep1, Precision1>, frequency<Rep2, Precision2>>;
     return ct(lhs).count() <=> ct(rhs).count();
 }
@@ -1135,8 +1124,8 @@ struct common_type<freq::frequency<Rep1, Precision1>, freq::frequency<Rep2, Prec
 private:
     using common_precision = std::ratio<
         freq::_gcd(Precision1::num, Precision2::num),
-        (Precision1::den / freq::_gcd(Precision1::den, Precision2::den)) * Precision2::den
-    >;
+        (Precision1::den / freq::_gcd(Precision1::den, Precision2::den)) * Precision2::den>;
+
 public:
     using type = freq::frequency<std::common_type_t<Rep1, Rep2>, common_precision>;
 };
@@ -1144,68 +1133,44 @@ public:
 #if __has_include(<format>) && defined(__cpp_lib_format)
 template<>
 struct formatter<freq::millihertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::millihertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}mHz", f.count());
-    }
+    auto format(freq::millihertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}mHz", f.count()); }
 };
 
 template<>
 struct formatter<freq::hertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::hertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}Hz", f.count());
-    }
+    auto format(freq::hertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}Hz", f.count()); }
 };
 
 template<>
 struct formatter<freq::kilohertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::kilohertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}kHz", f.count());
-    }
+    auto format(freq::kilohertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}kHz", f.count()); }
 };
 
 template<>
 struct formatter<freq::megahertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::megahertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}MHz", f.count());
-    }
+    auto format(freq::megahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}MHz", f.count()); }
 };
 
 template<>
 struct formatter<freq::gigahertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::gigahertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}GHz", f.count());
-    }
+    auto format(freq::gigahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}GHz", f.count()); }
 };
 
 template<>
 struct formatter<freq::terahertz> {
-    constexpr auto parse(format_parse_context& ctx) {
-        return ctx.begin();
-    }
+    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
 
-    auto format(freq::terahertz f, format_context& ctx) const {
-        return std::format_to(ctx.out(), "{}THz", f.count());
-    }
+    auto format(freq::terahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}THz", f.count()); }
 };
 #endif
 
@@ -1234,8 +1199,7 @@ struct parse_int;
 template<char D, char... Rest>
 struct parse_int<D, Rest...> {
     static_assert(D >= '0' && D <= '9', "invalid digit");
-    static constexpr unsigned long long value =
-        pow10<D - '0', sizeof...(Rest)>::value + parse_int<Rest...>::value;
+    static constexpr unsigned long long value = pow10<D - '0', sizeof...(Rest)>::value + parse_int<Rest...>::value;
 };
 
 template<char D>
@@ -1248,8 +1212,10 @@ template<typename Freq, char... Digits>
 constexpr Freq check_overflow() {
     using parsed = parse_int<Digits...>;
     constexpr typename Freq::rep repval = parsed::value;
-    static_assert(repval >= 0 && static_cast<unsigned long long>(repval) == parsed::value,
-                  "literal value cannot be represented by frequency type");
+    static_assert(
+        repval >= 0 && static_cast<unsigned long long>(repval) == parsed::value,
+        "literal value cannot be represented by frequency type"
+    );
     return Freq(repval);
 }
 

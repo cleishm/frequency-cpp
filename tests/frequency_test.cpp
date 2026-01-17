@@ -1,9 +1,9 @@
 // Unit tests for frequency library
 // Uses Catch2 test framework with compile-time static_asserts
 
-#include <frequency/frequency>
-#include <catch2/catch_test_macros.hpp>
 #include <catch2/catch_approx.hpp>
+#include <catch2/catch_test_macros.hpp>
+#include <frequency/frequency>
 
 using namespace freq;
 using namespace frequency_literals;
@@ -97,8 +97,8 @@ static_assert(floor<kilohertz>(hertz(2000)).count() == 2);
 static_assert(ceil<kilohertz>(hertz(1500)).count() == 2);
 static_assert(ceil<kilohertz>(hertz(1001)).count() == 2);
 static_assert(ceil<kilohertz>(hertz(1000)).count() == 1);
-static_assert(round<kilohertz>(hertz(1500)).count() == 2);  // ties to even
-static_assert(round<kilohertz>(hertz(2500)).count() == 2);  // ties to even
+static_assert(round<kilohertz>(hertz(1500)).count() == 2); // ties to even
+static_assert(round<kilohertz>(hertz(2500)).count() == 2); // ties to even
 static_assert(round<kilohertz>(hertz(1499)).count() == 1);
 static_assert(round<kilohertz>(hertz(1501)).count() == 2);
 static_assert(abs(hertz(100)).count() == 100);
@@ -107,8 +107,8 @@ static_assert(abs(hertz(0)).count() == 0);
 
 // beat
 static_assert(beat(100_Hz, 40_Hz) == 60_Hz);
-static_assert(beat(40_Hz, 100_Hz) == 60_Hz);  // commutative
-static_assert(beat(1000_Hz, 1000_Hz).count() == 0);  // same frequency
+static_assert(beat(40_Hz, 100_Hz) == 60_Hz);        // commutative
+static_assert(beat(1000_Hz, 1000_Hz).count() == 0); // same frequency
 
 // =============================================================================
 // Runtime tests (Catch2 TEST_CASE)
@@ -138,14 +138,14 @@ TEST_CASE("frequency precision conversion Hz to mHz", "[frequency]") {
 TEST_CASE("frequency precision conversion mHz to Hz", "[frequency]") {
     // mHz to Hz (explicit, lossy - divides by 1000)
     hertz hz = frequency_cast<hertz>(millihertz(1500));
-    REQUIRE(hz.count() == 1);  // truncates
+    REQUIRE(hz.count() == 1); // truncates
 
     hertz hz2 = frequency_cast<hertz>(millihertz(1999));
-    REQUIRE(hz2.count() == 1);  // still truncates
+    REQUIRE(hz2.count() == 1); // still truncates
 }
 
 TEST_CASE("frequency precision conversion kHz to Hz", "[frequency]") {
-    hertz hz = kilohertz(1);  // implicit, lossless
+    hertz hz = kilohertz(1); // implicit, lossless
     REQUIRE(hz.count() == 1000);
 
     hertz hz2 = kilohertz(80);
@@ -155,11 +155,11 @@ TEST_CASE("frequency precision conversion kHz to Hz", "[frequency]") {
 TEST_CASE("frequency precision conversion Hz to kHz", "[frequency]") {
     // Hz to kHz (explicit, lossy)
     kilohertz khz = frequency_cast<kilohertz>(hertz(1500));
-    REQUIRE(khz.count() == 1);  // truncates
+    REQUIRE(khz.count() == 1); // truncates
 }
 
 TEST_CASE("frequency precision conversion MHz to kHz", "[frequency]") {
-    kilohertz khz = megahertz(1);  // implicit, lossless
+    kilohertz khz = megahertz(1); // implicit, lossless
     REQUIRE(khz.count() == 1000);
 
     kilohertz khz2 = megahertz(80);
@@ -167,7 +167,7 @@ TEST_CASE("frequency precision conversion MHz to kHz", "[frequency]") {
 }
 
 TEST_CASE("frequency precision conversion GHz to MHz", "[frequency]") {
-    megahertz mhz = gigahertz(1);  // implicit, lossless
+    megahertz mhz = gigahertz(1); // implicit, lossless
     REQUIRE(mhz.count() == 1000);
 
     megahertz mhz2 = gigahertz(2);
@@ -463,13 +463,13 @@ TEST_CASE("frequency wavelength with velocity", "[frequency][wavelength]") {
 
 TEST_CASE("frequency harmonic operations", "[frequency][harmonics]") {
     SECTION("harmonics") {
-        hertz fundamental(440);  // A4 concert pitch
+        hertz fundamental(440); // A4 concert pitch
 
         REQUIRE(fundamental.harmonic(1).count() == 440);
-        REQUIRE(fundamental.harmonic(2).count() == 880);   // 2nd harmonic (octave up)
-        REQUIRE(fundamental.harmonic(3).count() == 1320);  // 3rd harmonic
-        REQUIRE(fundamental.harmonic(4).count() == 1760);  // 4th harmonic (2 octaves up)
-        REQUIRE(fundamental.harmonic(5).count() == 2200);  // 5th harmonic
+        REQUIRE(fundamental.harmonic(2).count() == 880);  // 2nd harmonic (octave up)
+        REQUIRE(fundamental.harmonic(3).count() == 1320); // 3rd harmonic
+        REQUIRE(fundamental.harmonic(4).count() == 1760); // 4th harmonic (2 octaves up)
+        REQUIRE(fundamental.harmonic(5).count() == 2200); // 5th harmonic
     }
 
     SECTION("subharmonics") {
@@ -504,8 +504,8 @@ TEST_CASE("frequency harmonic operations", "[frequency][harmonics]") {
 
     SECTION("harmonic/subharmonic round trip") {
         hertz base(100);
-        auto up = base.harmonic(5);      // 500 Hz
-        auto down = up.subharmonic(5);   // 100 Hz
+        auto up = base.harmonic(5);    // 500 Hz
+        auto down = up.subharmonic(5); // 100 Hz
         REQUIRE(down == base);
     }
 
@@ -539,7 +539,7 @@ TEST_CASE("frequency octave operations", "[frequency][octaves]") {
 
         // Half octave up
         auto between = a4.octave_shift(0.5);
-        REQUIRE(between.count() == 622);  // sqrt(2) * 440 ≈ 622
+        REQUIRE(between.count() == 622); // sqrt(2) * 440 ≈ 622
     }
 
     SECTION("octave_shift down") {
@@ -583,11 +583,11 @@ TEST_CASE("frequency semitone operations", "[frequency][semitones]") {
 
         // 1 semitone (minor second)
         auto a_sharp = a4.semitone_shift(1);
-        REQUIRE(a_sharp.count() == 466);  // 440 * 2^(1/12) ≈ 466
+        REQUIRE(a_sharp.count() == 466); // 440 * 2^(1/12) ≈ 466
 
         // 7 semitones (perfect fifth)
         auto e5 = a4.semitone_shift(7);
-        REQUIRE(e5.count() == 659);  // 440 * 2^(7/12) ≈ 659
+        REQUIRE(e5.count() == 659); // 440 * 2^(7/12) ≈ 659
     }
 
     SECTION("semitone_shift down") {
@@ -599,7 +599,7 @@ TEST_CASE("frequency semitone operations", "[frequency][semitones]") {
 
         // 1 semitone down
         auto g_sharp = a4.semitone_shift(-1);
-        REQUIRE(g_sharp.count() == 415);  // 440 / 2^(1/12) ≈ 415
+        REQUIRE(g_sharp.count() == 415); // 440 / 2^(1/12) ≈ 415
     }
 
     SECTION("semitones_from") {
@@ -634,16 +634,16 @@ TEST_CASE("frequency semitone operations", "[frequency][semitones]") {
 
 TEST_CASE("frequency musical intervals", "[frequency][music]") {
     SECTION("equal temperament tuning") {
-        hertz a4(440);  // Standard concert pitch
+        hertz a4(440); // Standard concert pitch
 
         // Major scale intervals from A
-        auto b = a4.semitone_shift(2);   // Major second
+        auto b = a4.semitone_shift(2);        // Major second
         auto c_sharp = a4.semitone_shift(4);  // Major third
-        auto d = a4.semitone_shift(5);   // Perfect fourth
-        auto e = a4.semitone_shift(7);   // Perfect fifth
+        auto d = a4.semitone_shift(5);        // Perfect fourth
+        auto e = a4.semitone_shift(7);        // Perfect fifth
         auto f_sharp = a4.semitone_shift(9);  // Major sixth
         auto g_sharp = a4.semitone_shift(11); // Major seventh
-        auto a5 = a4.semitone_shift(12); // Octave
+        auto a5 = a4.semitone_shift(12);      // Octave
 
         REQUIRE(b.count() == 494);
         REQUIRE(c_sharp.count() == 554);
@@ -757,8 +757,8 @@ TEST_CASE("floating-point frequency musical operations", "[frequency][floating-p
         REQUIRE(fifth_harmonic.count() == Catch::Approx(500.0));
 
         // Just intonation intervals (exact frequency ratios)
-        auto perfect_fifth = fundamental * 1.5;  // 3:2 ratio
-        auto major_third = fundamental * 1.25;    // 5:4 ratio
+        auto perfect_fifth = fundamental * 1.5; // 3:2 ratio
+        auto major_third = fundamental * 1.25;  // 5:4 ratio
 
         REQUIRE(perfect_fifth.count() == Catch::Approx(150.0));
         REQUIRE(major_third.count() == Catch::Approx(125.0));
@@ -884,15 +884,15 @@ TEST_CASE("frequency round", "[frequency][rounding]") {
     SECTION("mHz to Hz") {
         REQUIRE(round<hertz>(millihertz(1499)).count() == 1);
         REQUIRE(round<hertz>(millihertz(1501)).count() == 2);
-        REQUIRE(round<hertz>(millihertz(1500)).count() == 2);  // ties to even
-        REQUIRE(round<hertz>(millihertz(2500)).count() == 2);  // ties to even
+        REQUIRE(round<hertz>(millihertz(1500)).count() == 2); // ties to even
+        REQUIRE(round<hertz>(millihertz(2500)).count() == 2); // ties to even
     }
 
     SECTION("negative values") {
         REQUIRE(round<kilohertz>(hertz(-1499)).count() == -1);
         REQUIRE(round<kilohertz>(hertz(-1501)).count() == -2);
-        REQUIRE(round<kilohertz>(hertz(-1500)).count() == -2);  // ties to even
-        REQUIRE(round<kilohertz>(hertz(-2500)).count() == -2);  // ties to even
+        REQUIRE(round<kilohertz>(hertz(-1500)).count() == -2); // ties to even
+        REQUIRE(round<kilohertz>(hertz(-2500)).count() == -2); // ties to even
     }
 
     SECTION("exact conversions") {
@@ -947,7 +947,7 @@ TEST_CASE("frequency abs", "[frequency][rounding]") {
 TEST_CASE("beat calculations", "[frequency][interference]") {
     SECTION("same precision - integer") {
         REQUIRE(beat(1000_Hz, 600_Hz) == 400_Hz);
-        REQUIRE(beat(600_Hz, 1000_Hz) == 400_Hz);  // commutative
+        REQUIRE(beat(600_Hz, 1000_Hz) == 400_Hz); // commutative
     }
 
     SECTION("same frequency yields zero beat") {
@@ -1027,9 +1027,9 @@ TEST_CASE("frequency rounding edge cases", "[frequency][rounding]") {
 
     SECTION("round with larger precision gaps") {
         REQUIRE(round<megahertz>(hertz(1499999)).count() == 1);
-        REQUIRE(round<megahertz>(hertz(1500000)).count() == 2);  // ties to even
+        REQUIRE(round<megahertz>(hertz(1500000)).count() == 2); // ties to even
         REQUIRE(round<megahertz>(hertz(1500001)).count() == 2);
-        REQUIRE(round<megahertz>(hertz(2500000)).count() == 2);  // ties to even
+        REQUIRE(round<megahertz>(hertz(2500000)).count() == 2); // ties to even
     }
 
     SECTION("abs with min/max values") {
