@@ -9,6 +9,8 @@ project(frequency
 
 option(FREQUENCY_BUILD_TESTS "Build tests" ${frequency_IS_TOP_LEVEL})
 
+set(CMAKE_CXX_EXTENSIONS OFF)
+
 # Main library target (header-only)
 add_library(frequency INTERFACE)
 add_library(frequency::frequency ALIAS frequency)
