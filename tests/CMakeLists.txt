@@ -16,6 +16,8 @@ target_link_libraries(frequency_tests PRIVATE
     Catch2::Catch2WithMain
 )
 
+target_compile_options(frequency_tests PRIVATE -Wall)
+
 include(CTest)
 include(Catch)
 catch_discover_tests(frequency_tests)

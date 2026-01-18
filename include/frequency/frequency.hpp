@@ -445,9 +445,8 @@ public:
 
         // Integer-only path when both types are integral
         if constexpr (std::is_integral_v<rep> && std::is_integral_v<duration_rep>) {
-            using cr = std::common_type_t<duration_rep, rep, intmax_t>;
-
 #ifdef __SIZEOF_INT128__
+            using cr = std::common_type_t<duration_rep, rep, intmax_t>;
             using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
 #else
             using wider_t = intmax_t;
@@ -746,11 +745,11 @@ constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f) {
         using to_rep = typename ToFreq::rep;
         using to_precision = typename ToFreq::precision;
         using cf = std::ratio_divide<Precision, to_precision>;
-        using cr = std::common_type_t<to_rep, Rep, intmax_t>;
 
         // Use wider intermediate type for integer-to-integer conversions
         if constexpr (std::is_integral_v<Rep> && std::is_integral_v<to_rep>) {
 #ifdef __SIZEOF_INT128__
+            using cr = std::common_type_t<to_rep, Rep, intmax_t>;
             using wider_t = std::conditional_t<std::is_signed_v<cr>, __int128, unsigned __int128>;
 #else
             using wider_t = intmax_t;
@@ -776,7 +775,8 @@ constexpr ToFreq frequency_cast(const frequency<Rep, Precision>& f) {
                 return ToFreq(static_cast<to_rep>(result));
             }
         } else {
-            // Floating-point path (existing behavior)
+            // Floating-point path
+            using cr = std::common_type_t<to_rep, Rep, intmax_t>;
             if constexpr (cf::den == 1 && cf::num == 1) {
                 return ToFreq(static_cast<to_rep>(f.count()));
             } else if constexpr (cf::den == 1) {
