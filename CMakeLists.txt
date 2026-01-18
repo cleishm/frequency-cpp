@@ -1,11 +1,17 @@
 cmake_minimum_required(VERSION 3.14)
 
 project(frequency
-    VERSION 1.0.0
+    VERSION 1.1.0
     DESCRIPTION "Type-safe frequency handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/frequency-cpp"
     LANGUAGES CXX
 )
+
+# ESP-IDF component support
+if(ESP_PLATFORM)
+    idf_component_register(INCLUDE_DIRS "include")
+    return()
+endif()
 
 option(FREQUENCY_BUILD_TESTS "Build tests" ${frequency_IS_TOP_LEVEL})
 
