@@ -22,6 +22,39 @@ target_include_directories(frequency INTERFACE
 
 target_compile_features(frequency INTERFACE cxx_std_20)
 
+# Formatting (only when this is the top-level project)
+if(frequency_IS_TOP_LEVEL)
+    find_program(CLANG_FORMAT_EXECUTABLE NAMES clang-format)
+
+    if(CLANG_FORMAT_EXECUTABLE)
+        # Get all source files
+        file(GLOB_RECURSE ALL_SOURCE_FILES
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/*.h
+            ${CMAKE_CURRENT_SOURCE_DIR}/include/*.hpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cpp
+            ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.h
+        )
+
+        # Target to check formatting
+        add_custom_target(format-check
+            COMMAND ${CLANG_FORMAT_EXECUTABLE} --dry-run --Werror ${ALL_SOURCE_FILES}
+            COMMENT "Checking code formatting"
+            VERBATIM
+        )
+
+        # Target to fix formatting
+        add_custom_target(format
+            COMMAND ${CLANG_FORMAT_EXECUTABLE} -i ${ALL_SOURCE_FILES}
+            COMMENT "Applying code formatting"
+            VERBATIM
+        )
+
+        message(STATUS "clang-format found: format targets available")
+    else()
+        message(WARNING "clang-format not found: format targets unavailable")
+    endif()
+endif()
+
 # Tests
 if(FREQUENCY_BUILD_TESTS)
     enable_testing()
