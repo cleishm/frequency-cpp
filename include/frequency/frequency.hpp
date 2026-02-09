@@ -12,7 +12,15 @@
 #include <limits>
 #include <ratio>
 #include <string>
+#ifndef CONFIG_FREQUENCY_STD_FORMAT
 #if __has_include(<format>) && defined(__cpp_lib_format)
+#define CONFIG_FREQUENCY_STD_FORMAT 1
+#else
+#define CONFIG_FREQUENCY_STD_FORMAT 0
+#endif
+#endif
+
+#if CONFIG_FREQUENCY_STD_FORMAT
 #include <format>
 #endif
 #include <assert.h>
@@ -1130,7 +1138,7 @@ public:
     using type = freq::frequency<std::common_type_t<Rep1, Rep2>, common_precision>;
 };
 
-#if __has_include(<format>) && defined(__cpp_lib_format)
+#if CONFIG_FREQUENCY_STD_FORMAT
 template<>
 struct formatter<freq::millihertz> {
     constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
