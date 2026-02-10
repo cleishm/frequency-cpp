@@ -1,0 +1,22 @@
+name: Upload Component
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Upload component to ESP Component Registry
+        uses: espressif/upload-components-ci-action@v2
+        with:
+          namespace: "cleishm"
+          components: "frequency:."
