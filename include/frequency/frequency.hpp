@@ -1099,28 +1099,75 @@ using terahertz = frequency<int64_t, std::tera>;
 
 /** @} */ // end of FrequencyTypes group
 
-inline std::string to_string(millihertz f) {
-    return std::to_string(f.count()) + "mHz";
-}
+/** @cond INTERNAL */
+// SI prefix for a hertz-per-count ratio; nullptr when unmapped.
+template<typename Ratio>
+struct _si_prefix {
+    static constexpr const char* value = nullptr;
+};
+template<>
+struct _si_prefix<std::femto> {
+    static constexpr const char* value = "f";
+};
+template<>
+struct _si_prefix<std::pico> {
+    static constexpr const char* value = "p";
+};
+template<>
+struct _si_prefix<std::nano> {
+    static constexpr const char* value = "n";
+};
+template<>
+struct _si_prefix<std::micro> {
+    static constexpr const char* value = "µ";
+};
+template<>
+struct _si_prefix<std::milli> {
+    static constexpr const char* value = "m";
+};
+template<>
+struct _si_prefix<std::ratio<1>> {
+    static constexpr const char* value = "";
+};
+template<>
+struct _si_prefix<std::kilo> {
+    static constexpr const char* value = "k";
+};
+template<>
+struct _si_prefix<std::mega> {
+    static constexpr const char* value = "M";
+};
+template<>
+struct _si_prefix<std::giga> {
+    static constexpr const char* value = "G";
+};
+template<>
+struct _si_prefix<std::tera> {
+    static constexpr const char* value = "T";
+};
+template<typename Ratio>
+inline constexpr const char* _si_prefix_v = _si_prefix<typename Ratio::type>::value;
 
-inline std::string to_string(hertz f) {
-    return std::to_string(f.count()) + "Hz";
+// Appends a NUL-terminated string to a format output iterator.
+template<typename OutputIt>
+constexpr OutputIt _format_append(OutputIt out, const char* s) {
+    for (; *s != '\0'; ++s) {
+        *out++ = *s;
+    }
+    return out;
 }
+/** @endcond */
 
-inline std::string to_string(kilohertz f) {
-    return std::to_string(f.count()) + "kHz";
-}
-
-inline std::string to_string(megahertz f) {
-    return std::to_string(f.count()) + "MHz";
-}
-
-inline std::string to_string(gigahertz f) {
-    return std::to_string(f.count()) + "GHz";
-}
-
-inline std::string to_string(terahertz f) {
-    return std::to_string(f.count()) + "THz";
+/**
+ * @brief Renders a frequency as its exact count with a precision-qualified
+ * unit, e.g. `to_string(kilohertz(433)) == "433kHz"`.
+ */
+template<typename Rep, typename Precision>
+    requires(!treat_as_inexact_v<Rep>)
+std::string to_string(const frequency<Rep, Precision>& f) {
+    using precision = typename frequency<Rep, Precision>::precision;
+    static_assert(_si_prefix_v<precision> != nullptr, "frequency: precision has no SI prefix");
+    return std::to_string(f.count()) + _si_prefix_v<precision> + "Hz";
 }
 
 } // namespace freq
@@ -1139,46 +1186,41 @@ public:
 };
 
 #if CONFIG_FREQUENCY_STD_FORMAT
-template<>
-struct formatter<freq::millihertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
+// "{}" prints the exact stored count with a precision-qualified unit
+// (kilohertz(433) -> "433kHz"). A non-empty spec is applied to the value in
+// hertz (as double): std::format("{:.1f}", millihertz(1500)) == "1.5Hz".
+template<typename Rep, typename Precision>
+struct formatter<freq::frequency<Rep, Precision>> {
+private:
+    using _precision = typename freq::frequency<Rep, Precision>::precision;
+    static constexpr const char* _prefix = freq::_si_prefix_v<_precision>;
+    std::formatter<double> _num;
+    bool _has_spec = false;
 
-    auto format(freq::millihertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}mHz", f.count()); }
-};
+public:
+    constexpr auto parse(format_parse_context& ctx) {
+        auto it = ctx.begin();
+        if (it == ctx.end() || *it == '}') {
+            if (_prefix == nullptr) {
+                throw format_error("frequency: precision has no SI prefix; use an explicit format spec");
+            }
+            return it;
+        }
+        _has_spec = true;
+        return _num.parse(ctx);
+    }
 
-template<>
-struct formatter<freq::hertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(freq::hertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}Hz", f.count()); }
-};
-
-template<>
-struct formatter<freq::kilohertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(freq::kilohertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}kHz", f.count()); }
-};
-
-template<>
-struct formatter<freq::megahertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(freq::megahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}MHz", f.count()); }
-};
-
-template<>
-struct formatter<freq::gigahertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(freq::gigahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}GHz", f.count()); }
-};
-
-template<>
-struct formatter<freq::terahertz> {
-    constexpr auto parse(format_parse_context& ctx) { return ctx.begin(); }
-
-    auto format(freq::terahertz f, format_context& ctx) const { return std::format_to(ctx.out(), "{}THz", f.count()); }
+    template<typename FormatContext>
+    auto format(const freq::frequency<Rep, Precision>& f, FormatContext& ctx) const {
+        if (_has_spec) {
+            double hz = static_cast<double>(f.count()) * _precision::num / _precision::den;
+            auto out = _num.format(hz, ctx);
+            return freq::_format_append(out, "Hz");
+        }
+        auto out = std::format_to(ctx.out(), "{}", f.count());
+        out = freq::_format_append(out, _prefix);
+        return freq::_format_append(out, "Hz");
+    }
 };
 #endif
 

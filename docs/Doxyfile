@@ -6,7 +6,7 @@
 
 DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "frequency"
-PROJECT_NUMBER         = "1.0.0"
+PROJECT_NUMBER         = "1.2.0"
 PROJECT_BRIEF          = "Type-safe frequency handling library modeled after std::chrono"
 PROJECT_LOGO           =
 OUTPUT_DIRECTORY       = .

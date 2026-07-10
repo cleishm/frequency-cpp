@@ -88,6 +88,12 @@ if (kilohertz{1} == hertz{1000}) {
 
 // String conversion
 std::string s = to_string(kilohertz(80));  // "80kHz"
+
+// Formatting: a floating-point format spec renders in hertz, while the
+// default renders the exact stored value.
+millihertz reading{1500};
+std::string disp = std::format("{:.1f}", reading);  // "1.5Hz"
+std::string raw  = std::format("{}", reading);      // "1500mHz" (exact stored value)
 ```
 
 ## Frequency Types
