@@ -2,7 +2,7 @@ vcpkg_from_github(
     OUT_SOURCE_PATH SOURCE_PATH
     REPO cleishm/frequency-cpp
     REF "v${VERSION}"
-    SHA512 9535b051bbe57b1586f5df11edb6f41d97dc4b7ab2210e03e7911a21f0f88cc91ff100a5ed1062ab470a870bce9a17b2f6cde30ef918f911ae5d501a5a78ccc7
+    SHA512 97b3dd1a84e343530c1dc717323f206ef7b4b0be21396f85239c0e77aa4d2adc4e9774e8525c91ffc60d20d2e0b57667de698caed9c8518a897e2e7ab9ab512c
     HEAD_REF main
 )
 
