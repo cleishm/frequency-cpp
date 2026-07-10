@@ -248,7 +248,31 @@ TEST_CASE("to_string", "[frequency][string]") {
     REQUIRE(to_string(kilohertz(80)) == "80kHz");
     REQUIRE(to_string(megahertz(80)) == "80MHz");
     REQUIRE(to_string(gigahertz(2)) == "2GHz");
+    REQUIRE(to_string(terahertz(5)) == "5THz");
 }
+
+#if CONFIG_FREQUENCY_STD_FORMAT
+TEST_CASE("std::format frequency", "[frequency][string]") {
+    // Empty spec prints the exact stored count with a precision-qualified unit.
+    REQUIRE(std::format("{}", millihertz(1500)) == "1500mHz");
+    REQUIRE(std::format("{}", hertz(440)) == "440Hz");
+    REQUIRE(std::format("{}", kilohertz(433)) == "433kHz");
+    REQUIRE(std::format("{}", megahertz(868)) == "868MHz");
+    REQUIRE(std::format("{}", gigahertz(2)) == "2GHz");
+    REQUIRE(std::format("{}", terahertz(5)) == "5THz");
+}
+
+TEST_CASE("std::format with spec renders in hertz", "[frequency][string]") {
+    // A floating-point format spec renders the value in hertz.
+    REQUIRE(std::format("{:.1f}", millihertz(1500)) == "1.5Hz");
+    REQUIRE(std::format("{:.2f}", millihertz(1534)) == "1.53Hz");
+    REQUIRE(std::format("{:.1f}", hertz(440)) == "440.0Hz");
+    REQUIRE(std::format("{:g}", kilohertz(2)) == "2000Hz");
+
+    // Width and alignment pass through to the numeric part.
+    REQUIRE(std::format("{:7.1f}", millihertz(1500)) == "    1.5Hz");
+}
+#endif
 
 TEST_CASE("frequency period", "[frequency][period]") {
     using namespace std::chrono;
