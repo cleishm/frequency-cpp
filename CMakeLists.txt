@@ -7,7 +7,7 @@ if(ESP_PLATFORM)
 endif()
 
 project(frequency
-    VERSION 1.2.0
+    VERSION 1.2.1
     DESCRIPTION "Type-safe frequency handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/frequency-cpp"
     LANGUAGES CXX
