@@ -14,6 +14,17 @@
 #error "this test must be compiled with exceptions disabled"
 #endif
 
+#if !CONFIG_FREQUENCY_STD_FORMAT
+
+// Without std::format the formatter is not compiled and there is nothing to
+// test; older standard libraries (e.g. g++-12's) lack <format> entirely.
+int main() {
+    std::printf("std::format unavailable; nothing to test\n");
+    return 0;
+}
+
+#else
+
 using namespace freq;
 
 namespace {
@@ -51,3 +62,5 @@ int main() {
     std::printf("all checks passed\n");
     return 0;
 }
+
+#endif // CONFIG_FREQUENCY_STD_FORMAT
