@@ -26,7 +26,6 @@ target_compile_options(frequency INTERFACE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
 target_include_directories(frequency INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-    $<INSTALL_INTERFACE:include>
 )
 
 target_compile_features(frequency INTERFACE cxx_std_20)
