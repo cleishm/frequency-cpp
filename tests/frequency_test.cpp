@@ -3,10 +3,71 @@
 
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
+#include <chrono>
+#include <cstdint>
 #include <frequency/frequency>
+#include <limits>
+#include <ratio>
 
 using namespace freq;
 using namespace frequency_literals;
+
+// A distance type standing in for a real length type (such as
+// spatial::meters) in the wavelength tests: chrono-shaped, with count(), rep
+// and period, but not a std::chrono::duration.
+template<typename Rep, typename Period = std::ratio<1>>
+struct test_distance {
+    using rep = Rep;
+    using period = Period;
+
+    constexpr test_distance() = default;
+    constexpr explicit test_distance(Rep r)
+        : value(r) {}
+
+    constexpr Rep count() const { return value; }
+    static constexpr test_distance max() { return test_distance(std::numeric_limits<Rep>::max()); }
+    friend constexpr bool operator==(const test_distance&, const test_distance&) = default;
+
+    Rep value{};
+};
+
+// An area-like type: count() and rep, but no period.
+struct test_area {
+    using rep = int64_t;
+    constexpr int64_t count() const { return 0; }
+};
+
+template<typename Duration>
+concept has_period = requires(hertz f) { f.period<Duration>(); };
+
+template<typename Distance>
+concept has_wavelength = requires(hertz f) { f.wavelength<Distance>(); };
+
+template<typename Distance, typename Duration>
+concept has_wavelength_for = requires(hertz f, Duration d) { f.wavelength<Distance>(d); };
+
+// duration_like accepts only std::chrono::duration specializations, so a
+// chrono-shaped type such as a length is not mistaken for a duration.
+static_assert(duration_like<std::chrono::seconds>);
+static_assert(duration_like<std::chrono::duration<double, std::milli>>);
+static_assert(!duration_like<test_distance<int64_t>>);
+static_assert(!duration_like<int>);
+static_assert(has_period<std::chrono::milliseconds>);
+static_assert(!has_period<test_distance<int64_t, std::milli>>);
+
+// distance_like accepts chrono-shaped types other than durations.
+static_assert(distance_like<test_distance<int64_t>>);
+static_assert(distance_like<test_distance<double, std::milli>>);
+static_assert(!distance_like<std::chrono::seconds>);
+static_assert(!distance_like<std::chrono::duration<double>>);
+static_assert(!distance_like<test_area>);
+static_assert(!distance_like<int>);
+static_assert(has_wavelength<test_distance<int64_t, std::milli>>);
+static_assert(!has_wavelength<std::chrono::seconds>);
+static_assert(!has_wavelength<test_area>);
+static_assert(has_wavelength_for<test_distance<int64_t>, std::chrono::nanoseconds>);
+static_assert(!has_wavelength_for<std::chrono::seconds, std::chrono::nanoseconds>);
+static_assert(!has_wavelength_for<test_distance<int64_t>, test_distance<int64_t>>);
 
 // =============================================================================
 // Compile-time tests (static_assert)
@@ -249,6 +310,52 @@ TEST_CASE("to_string", "[frequency][string]") {
     REQUIRE(to_string(megahertz(80)) == "80MHz");
     REQUIRE(to_string(gigahertz(2)) == "2GHz");
     REQUIRE(to_string(terahertz(5)) == "5THz");
+    REQUIRE(to_string(hertz(-440)) == "-440Hz");
+}
+
+TEST_CASE("to_string floating-point uses shortest fixed notation", "[frequency][string]") {
+    REQUIRE(to_string(frequency<double>(440.5)) == "440.5Hz");
+    REQUIRE(to_string(frequency<double>(1e6)) == "1000000Hz");
+    REQUIRE(to_string(frequency<double>(0.00001)) == "0.00001Hz");
+    REQUIRE(to_string(frequency<double, std::kilo>(2.5)) == "2.5kHz");
+    REQUIRE(to_string(frequency<double, std::milli>(-1.25)) == "-1.25mHz");
+    REQUIRE(to_string(frequency<float>(0.5f)) == "0.5Hz");
+}
+
+TEST_CASE("to_string base_unit", "[frequency][string]") {
+    REQUIRE(to_string(millihertz(1500), base_unit) == "1.5Hz");
+    REQUIRE(to_string(millihertz(24), base_unit) == "0.024Hz");
+    REQUIRE(to_string(kilohertz(433), base_unit) == "433000Hz");
+    REQUIRE(to_string(terahertz(5), base_unit) == "5000000000000Hz");
+    REQUIRE(to_string(hertz(-440), base_unit) == "-440Hz");
+    REQUIRE(to_string(kilohertz(0), base_unit) == "0Hz");
+    REQUIRE(to_string(frequency<double, std::mega>(2.5), base_unit) == "2500000Hz");
+    // Precisions with no SI prefix of their own still have a base unit.
+    REQUIRE(to_string(frequency<int64_t, std::deci>(225), base_unit) == "22.5Hz");
+}
+
+TEST_CASE("to_string scaled", "[frequency][string]") {
+    REQUIRE(to_string(megahertz(2400), scaled) == "2.4GHz");
+    REQUIRE(to_string(millihertz(1500), scaled) == "1.5Hz");
+    REQUIRE(to_string(millihertz(33), scaled) == "33mHz");
+    REQUIRE(to_string(hertz(999), scaled) == "999Hz");
+    REQUIRE(to_string(hertz(1000), scaled) == "1kHz");
+    REQUIRE(to_string(kilohertz(1500), scaled) == "1.5MHz");
+    REQUIRE(to_string(terahertz(5000), scaled) == "5000THz");
+    REQUIRE(to_string(hertz(-2500), scaled) == "-2.5kHz");
+    REQUIRE(to_string(hertz(-1), scaled) == "-1Hz");
+    REQUIRE(to_string(hertz(0), scaled) == "0Hz");
+    REQUIRE(to_string(millihertz(0), scaled) == "0Hz");
+    REQUIRE(to_string(gigahertz(0), scaled) == "0Hz");
+    // Below the smallest prefix the smallest is used.
+    REQUIRE(to_string(frequency<double, std::femto>(0.5), scaled) == "0.5fHz");
+    REQUIRE(to_string(frequency<double, std::micro>(0.25), scaled) == "250nHz");
+    // Precisions with no SI prefix of their own are scaled from hertz.
+    REQUIRE(to_string(frequency<int64_t, std::deci>(25), scaled) == "2.5Hz");
+    REQUIRE(to_string(frequency<int64_t, std::deci>(5), scaled) == "500mHz");
+    REQUIRE(to_string(frequency<int64_t, std::deca>(150), scaled) == "1.5kHz");
+    REQUIRE(to_string(frequency<int64_t, std::ratio<1, 4>>(10), scaled) == "2.5Hz");
+    REQUIRE(to_string(frequency<int64_t, std::ratio<1, 4>>(2), scaled) == "500mHz");
 }
 
 #if CONFIG_FREQUENCY_STD_FORMAT
@@ -260,17 +367,104 @@ TEST_CASE("std::format frequency", "[frequency][string]") {
     REQUIRE(std::format("{}", megahertz(868)) == "868MHz");
     REQUIRE(std::format("{}", gigahertz(2)) == "2GHz");
     REQUIRE(std::format("{}", terahertz(5)) == "5THz");
+    REQUIRE(std::format("{}", hertz(-440)) == "-440Hz");
 }
 
-TEST_CASE("std::format with spec renders in hertz", "[frequency][string]") {
-    // A floating-point format spec renders the value in hertz.
-    REQUIRE(std::format("{:.1f}", millihertz(1500)) == "1.5Hz");
-    REQUIRE(std::format("{:.2f}", millihertz(1534)) == "1.53Hz");
+TEST_CASE("std::format floating-point uses shortest fixed notation", "[frequency][string]") {
+    REQUIRE(std::format("{}", frequency<double>(440.5)) == "440.5Hz");
+    REQUIRE(std::format("{}", frequency<double>(1e6)) == "1000000Hz");
+    REQUIRE(std::format("{}", frequency<double>(0.00001)) == "0.00001Hz");
+    REQUIRE(std::format("{}", frequency<double, std::kilo>(2.5)) == "2.5kHz");
+}
+
+TEST_CASE("std::format with spec renders in the own unit", "[frequency][string]") {
+    // A format spec changes only how the number is rendered, never the unit.
+    REQUIRE(std::format("{:.1f}", millihertz(1500)) == "1500.0mHz");
+    REQUIRE(std::format("{:.2f}", millihertz(1534)) == "1534.00mHz");
     REQUIRE(std::format("{:.1f}", hertz(440)) == "440.0Hz");
-    REQUIRE(std::format("{:g}", kilohertz(2)) == "2000Hz");
+    REQUIRE(std::format("{:g}", kilohertz(2)) == "2kHz");
+    REQUIRE(std::format("{:.1f}", megahertz(2400)) == "2400.0MHz");
+    REQUIRE(std::format("{:.1f}", hertz(-440)) == "-440.0Hz");
+    REQUIRE(std::format("{:.1f}", kilohertz(0)) == "0.0kHz");
+    REQUIRE(std::format("{:.3e}", frequency<double, std::giga>(2.4)) == "2.400e+00GHz");
 
     // Width and alignment pass through to the numeric part.
-    REQUIRE(std::format("{:7.1f}", millihertz(1500)) == "    1.5Hz");
+    REQUIRE(std::format("{:7.1f}", millihertz(1500)) == " 1500.0mHz");
+    REQUIRE(std::format("{:*<8.1f}", hertz(50)) == "50.0****Hz");
+}
+
+TEST_CASE("std::format with no SI prefix renders a spec in hertz", "[frequency][string]") {
+    // There is no unit label for the precision, so a spec falls back to hertz.
+    using decihertz = frequency<int64_t, std::deci>;
+    REQUIRE(std::format("{:.1f}", decihertz(225)) == "22.5Hz");
+    REQUIRE(std::format("{:g}", decihertz(-5)) == "-0.5Hz");
+}
+
+TEST_CASE("std::format b marker renders in hertz", "[frequency][string]") {
+    REQUIRE(std::format("{:b}", millihertz(1500)) == "1.5Hz");
+    REQUIRE(std::format("{:b}", millihertz(24)) == "0.024Hz");
+    REQUIRE(std::format("{:b}", kilohertz(433)) == "433000Hz");
+    REQUIRE(std::format("{:b}", terahertz(5)) == "5000000000000Hz");
+    REQUIRE(std::format("{:b.1f}", millihertz(1500)) == "1.5Hz");
+    REQUIRE(std::format("{:b.2f}", kilohertz(2)) == "2000.00Hz");
+    REQUIRE(std::format("{:b}", hertz(-440)) == "-440Hz");
+    REQUIRE(std::format("{:b.1f}", millihertz(-1500)) == "-1.5Hz");
+    REQUIRE(std::format("{:b}", kilohertz(0)) == "0Hz");
+    REQUIRE(std::format("{:b.1f}", kilohertz(0)) == "0.0Hz");
+    REQUIRE(std::format("{:b}", frequency<double, std::mega>(2.5)) == "2500000Hz");
+    REQUIRE(std::format("{:b.1f}", frequency<int64_t, std::deci>(225)) == "22.5Hz");
+    REQUIRE(std::format("{:b}", frequency<int64_t, std::deci>(225)) == "22.5Hz");
+
+    // Width, fill and alignment follow the marker.
+    REQUIRE(std::format("{:b8.1f}", millihertz(1500)) == "     1.5Hz");
+    REQUIRE(std::format("{:b*>8.1f}", millihertz(1500)) == "*****1.5Hz");
+}
+
+TEST_CASE("std::format s marker scales the SI prefix", "[frequency][string]") {
+    REQUIRE(std::format("{:s}", megahertz(2400)) == "2.4GHz");
+    REQUIRE(std::format("{:s}", millihertz(1500)) == "1.5Hz");
+    REQUIRE(std::format("{:s.1f}", millihertz(33)) == "33.0mHz");
+    REQUIRE(std::format("{:s.2f}", hertz(1500)) == "1.50kHz");
+    REQUIRE(std::format("{:s}", hertz(999)) == "999Hz");
+    REQUIRE(std::format("{:s}", hertz(1000)) == "1kHz");
+    REQUIRE(std::format("{:s}", terahertz(5000)) == "5000THz");
+    REQUIRE(std::format("{:s}", hertz(-2500)) == "-2.5kHz");
+    REQUIRE(std::format("{:s.1f}", megahertz(-2400)) == "-2.4GHz");
+    REQUIRE(std::format("{:s}", hertz(0)) == "0Hz");
+    REQUIRE(std::format("{:s.1f}", gigahertz(0)) == "0.0Hz");
+    REQUIRE(std::format("{:s}", frequency<double, std::femto>(0.5)) == "0.5fHz");
+    REQUIRE(std::format("{:s}", frequency<int64_t, std::deci>(5)) == "500mHz");
+    REQUIRE(std::format("{:s.1f}", frequency<int64_t, std::deci>(225)) == "22.5Hz");
+
+    // Width, fill and alignment follow the marker.
+    REQUIRE(std::format("{:s6.1f}", megahertz(2400)) == "   2.4GHz");
+    REQUIRE(std::format("{:s*<8.2f}", hertz(1500)) == "1.50****kHz");
+}
+
+TEST_CASE("std::format and to_string agree with no spec", "[frequency][string]") {
+    const auto check = [](const auto& f) {
+        REQUIRE(std::format("{}", f) == to_string(f));
+        REQUIRE(std::format("{:b}", f) == to_string(f, base_unit));
+        REQUIRE(std::format("{:s}", f) == to_string(f, scaled));
+    };
+    check(millihertz(1500));
+    check(millihertz(24));
+    check(hertz(-2500));
+    check(hertz(0));
+    check(kilohertz(433));
+    check(megahertz(2400));
+    check(terahertz(5));
+    check(frequency<double>(440.5));
+    check(frequency<double>(1e6));
+    check(frequency<double>(0.00001));
+    check(frequency<double>(-0.0));
+    check(frequency<double, std::kilo>(2.5));
+    check(frequency<double, std::micro>(1e-3));
+    check(frequency<float>(0.1f));
+
+    using decihertz = frequency<int64_t, std::deci>;
+    REQUIRE(std::format("{:b}", decihertz(225)) == to_string(decihertz(225), base_unit));
+    REQUIRE(std::format("{:s}", decihertz(225)) == to_string(decihertz(225), scaled));
 }
 #endif
 
@@ -392,13 +586,12 @@ TEST_CASE("frequency period with literals", "[frequency][period][literals]") {
 TEST_CASE("frequency wavelength", "[frequency][wavelength]") {
     using namespace std::chrono;
 
-    // For testing, we'll use duration types as distance-like types
     // Using a simple model: if time_per_meter = 1 nanosecond,
     // then velocity = 1 meter/nanosecond = 1,000,000,000 m/s
 
     // 1 GHz with 1 ns/meter -> wavelength = 1 meter
     // period = 1 ns, wavelength = 1 ns / (1 ns/m) = 1 m
-    using meters = duration<int64_t, std::ratio<1>>;
+    using meters = test_distance<int64_t>;
     auto w1 = gigahertz(1).wavelength<meters>(nanoseconds(1));
     REQUIRE(w1.count() == 1);
 
@@ -408,7 +601,7 @@ TEST_CASE("frequency wavelength", "[frequency][wavelength]") {
     REQUIRE(w2.count() == 2);
 
     // 2 GHz with 1 ns/meter -> wavelength = 0.5 meters
-    using meters_double = duration<double, std::ratio<1>>;
+    using meters_double = test_distance<double>;
     auto w3 = gigahertz(2).wavelength<meters_double>(nanoseconds(1));
     REQUIRE(w3.count() == Catch::Approx(0.5).epsilon(0.01));
 
@@ -427,7 +620,7 @@ TEST_CASE("frequency wavelength with electromagnetic waves", "[frequency][wavele
 
     // Speed of light: ~299,792,458 m/s
     // Time per meter: 1/299792458 seconds ≈ 3.336 nanoseconds
-    using meters = duration<double, std::ratio<1>>;
+    using meters = test_distance<double>;
     auto time_per_meter = duration<double, std::nano>(3.33564095);
 
     // 1 Hz electromagnetic wave has wavelength of ~299,792,458 meters
@@ -450,8 +643,7 @@ TEST_CASE("frequency wavelength with electromagnetic waves", "[frequency][wavele
 TEST_CASE("frequency wavelength with velocity", "[frequency][wavelength]") {
     using namespace std::chrono;
 
-    // Simple distance type using duration as a stand-in (1 unit = 1 meter)
-    using meters = duration<double, std::ratio<1>>;
+    using meters = test_distance<double>;
 
     // Default speed of light
     // 1 MHz -> ~299.79 meters
@@ -483,6 +675,10 @@ TEST_CASE("frequency wavelength with velocity", "[frequency][wavelength]") {
     // Zero frequency returns max
     auto w7 = hertz(0).wavelength<meters>();
     REQUIRE(w7 == meters::max());
+
+    // Integer distance at a finer precision: 2.4 GHz -> 124 mm (truncated)
+    using millimeters = test_distance<int64_t, std::milli>;
+    REQUIRE((2400_MHz).wavelength<millimeters>() == millimeters(124));
 }
 
 TEST_CASE("frequency harmonic operations", "[frequency][harmonics]") {

@@ -1,18 +1,24 @@
 #pragma once
 
 /**
- * @file frequency
+ * @file frequency.hpp
  * @brief Frequency types and arithmetic, modeled after std::chrono.
  */
 
+#include <charconv>
+#include <chrono>
 #include <cmath>
 #include <compare>
 #include <concepts>
+#include <cstddef>
 #include <cstdint>
 #include <cstdlib>
 #include <limits>
 #include <ratio>
 #include <string>
+#include <system_error>
+#include <type_traits>
+#include <version> // pulls in __cpp_lib_format so the detection below works in non-IDF builds
 #ifndef CONFIG_FREQUENCY_STD_FORMAT
 #if __has_include(<format>) && defined(__cpp_lib_format)
 #define CONFIG_FREQUENCY_STD_FORMAT 1
@@ -85,6 +91,27 @@
  *
  * Conversions between integer and floating-point follow the same rules as
  * precision conversions (implicit when lossless, explicit when lossy).
+ *
+ * ## Formatting
+ *
+ * to_string() and std::format show a frequency in its own unit by default,
+ * whatever the format spec: `{}` prints the exact count and `{:.1f}` the count
+ * as a double, each followed by the precision's SI-prefixed unit. A single
+ * leading marker letter in the spec, or a tag argument to to_string(), opts
+ * into a different unit:
+ *
+ * @code
+ * std::format("{}", millihertz(1500));      // "1500mHz"   own unit
+ * std::format("{:.1f}", millihertz(1500));  // "1500.0mHz" own unit
+ * std::format("{:b}", millihertz(1500));    // "1.5Hz"     base unit (hertz)
+ * std::format("{:s}", megahertz(2400));     // "2.4GHz"    scaled
+ * std::format("{:s.2f}", hertz(1500));      // "1.50kHz"
+ * to_string(megahertz(2400), scaled);       // "2.4GHz"
+ * @endcode
+ *
+ * A precision with no SI prefix (e.g. `std::deci`) has no unit of its own:
+ * `{}` and to_string(f) do not compile for it, and a format spec without a
+ * marker renders the value in hertz.
  */
 namespace freq {
 
@@ -118,31 +145,28 @@ template<typename Rep>
 concept not_frequency = !_is_specialization_of_v<Rep, frequency>;
 
 /**
- * @brief Concept for duration-like types.
+ * @brief Concept for duration types.
  *
- * A type satisfies duration_like if it has the same interface as std::chrono::duration:
- * - A count() method returning the tick count
- * - A nested period type (typically a std::ratio)
- * - A nested rep type (the representation type)
+ * A type satisfies duration_like if it is a specialization of
+ * std::chrono::duration. Other types with the same shape (a count() method
+ * and nested period and rep types), such as length types, are not durations
+ * and are rejected.
  */
 template<typename T>
-concept duration_like = requires(T t) {
-    { t.count() };
-    typename T::period;
-    typename T::rep;
-};
+concept duration_like = _is_specialization_of_v<std::remove_cvref_t<T>, std::chrono::duration>;
 
 /**
  * @brief Concept for distance-like types.
  *
- * A type satisfies distance_like if it has the same interface as duration-like types,
- * but represents spatial distances rather than time durations:
+ * A type satisfies distance_like if it has a chrono-shaped interface but is
+ * not a std::chrono::duration (e.g. the lengths of
+ * [spatial](https://github.com/cleishm/spatial-cpp), such as spatial::millimeters):
  * - A count() method returning the tick count
- * - A nested period type (typically a std::ratio representing units relative to meters)
+ * - A nested period type (a std::ratio representing units relative to meters)
  * - A nested rep type (the representation type)
  */
 template<typename T>
-concept distance_like = requires(T t) {
+concept distance_like = !duration_like<T> && requires(T t) {
     { t.count() };
     typename T::period;
     typename T::rep;
@@ -421,7 +445,7 @@ public:
      * When either the frequency or duration uses floating-point representation,
      * the calculation falls back to floating-point arithmetic.
      *
-     * @tparam Duration The target duration type. Must satisfy the duration_like concept.
+     * @tparam Duration The target duration type, a std::chrono::duration (see duration_like).
      * @return The period as a duration.
      *
      * @note For integer duration types, be aware that the result may truncate if the
@@ -647,8 +671,9 @@ public:
      * For electromagnetic waves in vacuum, use std::chrono::nanoseconds(3) for approximately
      * 1 nanosecond per 0.3 meters (since light travels ~0.3 meters per nanosecond).
      *
-     * @tparam Distance The target distance type. Must satisfy the distance_like concept.
-     * @tparam Duration The duration type representing time per unit distance. Must satisfy duration_like.
+     * @tparam Distance The target distance type, e.g. spatial::millimeters. Must satisfy the
+     *                  distance_like concept (so it cannot be a std::chrono::duration).
+     * @tparam Duration The duration type representing time per unit distance, a std::chrono::duration.
      * @param time_per_unit_distance The time it takes to travel one unit of the target distance.
      * @return The wavelength as a distance-like value.
      *
@@ -698,7 +723,8 @@ public:
      * Returns the wavelength for this frequency given the propagation velocity.
      * The relationship is: wavelength = velocity / frequency
      *
-     * @tparam Distance The target distance type. Must satisfy the distance_like concept.
+     * @tparam Distance The target distance type, e.g. spatial::millimeters. Must satisfy the
+     *                  distance_like concept (so it cannot be a std::chrono::duration).
      * @param velocity The propagation velocity in meters per second.
      *                 Defaults to the speed of light (299,792,458 m/s).
      * @return The wavelength as a distance-like value.
@@ -706,6 +732,11 @@ public:
      * @note For electromagnetic waves in vacuum, use the default speed of light.
      *       For other media or wave types, specify the appropriate propagation velocity.
      *       For sound in air at 20°C, use approximately 343 m/s.
+     *
+     * @code
+     * // With spatial (https://github.com/cleishm/spatial-cpp)
+     * auto lambda = (2400_MHz).wavelength<spatial::millimeters>();  // 124 mm
+     * @endcode
      */
     template<distance_like Distance>
     constexpr Distance wavelength(double velocity = 299792458.0) const {
@@ -896,7 +927,6 @@ constexpr ToFreq round(const frequency<Rep, Precision>& f) {
     using to_rep = typename ToFreq::rep;
 
     if constexpr (std::is_integral_v<Rep> && std::is_integral_v<to_rep>) {
-        ToFreq result = frequency_cast<ToFreq>(f);
         ToFreq lower = floor<ToFreq>(f);
         ToFreq upper = lower + ToFreq(to_rep(1));
 
@@ -1176,18 +1206,245 @@ constexpr OutputIt _format_append(OutputIt out, const char* s) {
 #endif
 }
 #endif
+
+// A value and SI prefix (of hertz) to display, for the base-unit and scaled
+// forms.
+struct _display {
+    double value;
+    const char* prefix;
+};
+
+consteval bool _is_power_of_ten(intmax_t n) {
+    while (n >= 10 && n % 10 == 0) {
+        n /= 10;
+    }
+    return n == 1;
+}
+
+consteval int _log10(intmax_t n) {
+    int e = 0;
+    while (n >= 10) {
+        n /= 10;
+        ++e;
+    }
+    return e;
+}
+
+// Precisions that are exactly a power of ten of one hertz, whether or not
+// they have an SI prefix (std::deci and std::deca do not).
+template<typename Precision>
+concept _decimal_precision = _is_power_of_ten(Precision::num) && _is_power_of_ten(Precision::den);
+
+template<typename Precision>
+inline constexpr int _precision_exponent = _log10(Precision::num) - _log10(Precision::den);
+
+// 10^k as a double, exact for |k| <= 22.
+constexpr double _pow10(int k) {
+    double r = 1.0;
+    for (int i = 0; i < (k < 0 ? -k : k); ++i) {
+        r *= 10.0;
+    }
+    return r;
+}
+
+// v x 10^k with a single rounding (exact power of ten for |k| <= 22).
+constexpr double _scale_pow10(double v, int k) {
+    return k >= 0 ? v * _pow10(k) : v / _pow10(-k);
+}
+
+// The prefixes the scaled form chooses between: every precision _si_prefix
+// maps, by power-of-ten exponent of hertz, in ascending order.
+struct _scale_prefix {
+    int exponent;
+    const char* prefix;
+};
+
+inline constexpr _scale_prefix _scale_prefixes[] = {
+    {-15, _si_prefix_v<std::femto>},
+    {-12, _si_prefix_v<std::pico>},
+    {-9, _si_prefix_v<std::nano>},
+    {-6, _si_prefix_v<std::micro>},
+    {-3, _si_prefix_v<std::milli>},
+    {0, _si_prefix_v<std::ratio<1>>},
+    {3, _si_prefix_v<std::kilo>},
+    {6, _si_prefix_v<std::mega>},
+    {9, _si_prefix_v<std::giga>},
+    {12, _si_prefix_v<std::tera>},
+};
+
+// The frequency in hertz, as a double.
+template<typename Rep, typename Precision>
+_display _base_unit_display(const frequency<Rep, Precision>& f) {
+    using p = typename frequency<Rep, Precision>::precision;
+    double v = static_cast<double>(f.count());
+    if constexpr (p::num != 1) {
+        v *= static_cast<double>(p::num);
+    }
+    if constexpr (p::den != 1) {
+        v /= static_cast<double>(p::den);
+    }
+    return {v, _si_prefix_v<std::ratio<1>>};
+}
+
+// The frequency with the largest SI prefix in which its magnitude is at least
+// 1, else the smallest; zero (keeping its sign) is shown in hertz, as the
+// base-unit form would show it. For a power-of-ten precision each candidate's
+// value is computed from the count with a single scaling by a power of ten, so
+// values that land exactly on a prefix (1000 Hz) are exactly 1 in it; other
+// precisions are scaled from their value in hertz.
+template<typename Rep, typename Precision>
+_display _scaled_display(const frequency<Rep, Precision>& f) {
+    using p = typename frequency<Rep, Precision>::precision;
+    double x;
+    int exponent;
+    if constexpr (_decimal_precision<p>) {
+        x = static_cast<double>(f.count());
+        exponent = _precision_exponent<p>;
+    } else {
+        x = _base_unit_display(f).value;
+        exponent = 0;
+    }
+    if (x == 0) {
+        return {x, _si_prefix_v<std::ratio<1>>};
+    }
+    constexpr std::size_t n = std::extent_v<decltype(_scale_prefixes)>;
+    for (std::size_t i = n; i-- > 1;) {
+        const double v = _scale_pow10(x, exponent - _scale_prefixes[i].exponent);
+        if (v >= 1.0 || v <= -1.0) {
+            return {v, _scale_prefixes[i].prefix};
+        }
+    }
+    return {_scale_pow10(x, exponent - _scale_prefixes[0].exponent), _scale_prefixes[0].prefix};
+}
+
+// The shortest fixed-notation representation of v that round-trips: never
+// scientific notation, and no trailing zeros (2.5 -> "2.5", 1e6 -> "1000000",
+// 1e-15 -> "0.000000000000001"). Used wherever a floating-point value is
+// rendered without a format spec, so to_string and std::format agree.
+template<std::floating_point T>
+std::string _fixed_string(T v) {
+    std::string s(32, '\0');
+    for (;;) {
+        const auto result = std::to_chars(s.data(), s.data() + s.size(), v, std::chars_format::fixed);
+        if (result.ec == std::errc()) {
+            s.resize(static_cast<std::size_t>(result.ptr - s.data()));
+            return s;
+        }
+        s.resize(s.size() * 2);
+    }
+}
+
+// A count rendered without a format spec: integers exactly, floating-point
+// counts in shortest round-trip fixed notation.
+template<typename Rep>
+std::string _count_string(const Rep& r) {
+    if constexpr (std::floating_point<Rep>) {
+        return _fixed_string(r);
+    } else {
+        return std::to_string(r);
+    }
+}
 /** @endcond */
 
 /**
- * @brief Renders a frequency as its exact count with a precision-qualified
- * unit, e.g. `to_string(kilohertz(433)) == "433kHz"`.
+ * @brief Tag type selecting the base-unit form, see base_unit.
+ */
+struct base_unit_t {
+    explicit base_unit_t() = default;
+};
+
+/**
+ * @brief Selects the base-unit form in to_string().
+ *
+ * The frequency is shown in hertz, with the value (count x precision)
+ * rendered in the shortest fixed notation that round-trips (never
+ * scientific), exactly as by the `b` format marker.
+ *
+ * @code
+ * to_string(millihertz(1500), base_unit);  // "1.5Hz"
+ * to_string(kilohertz(433), base_unit);    // "433000Hz"
+ * to_string(millihertz(24), base_unit);    // "0.024Hz"
+ * @endcode
+ */
+inline constexpr base_unit_t base_unit{};
+
+/**
+ * @brief Tag type selecting the scaled form, see scaled.
+ */
+struct scaled_t {
+    explicit scaled_t() = default;
+};
+
+/**
+ * @brief Selects the scaled form in to_string().
+ *
+ * The frequency is shown with the largest SI prefix (fHz, pHz, nHz, µHz, mHz,
+ * Hz, kHz, MHz, GHz or THz) in which its magnitude is at least 1, or in fHz
+ * if there is none; zero is shown in Hz. This applies to every precision,
+ * including those with no SI prefix of their own. The value is rendered in the
+ * shortest fixed notation that round-trips (never scientific), exactly as by
+ * the `s` format marker.
+ *
+ * @code
+ * to_string(megahertz(2400), scaled);  // "2.4GHz"
+ * to_string(hertz(-2500), scaled);     // "-2.5kHz"
+ * to_string(millihertz(33), scaled);   // "33mHz"
+ * to_string(kilohertz(0), scaled);     // "0Hz"
+ * @endcode
+ */
+inline constexpr scaled_t scaled{};
+
+/**
+ * @brief Converts a frequency to a string with its precision-qualified unit.
+ *
+ * Integer counts are shown exactly; floating-point counts in the shortest
+ * fixed notation that round-trips (never scientific), matching
+ * std::format("{}"). Available for precisions with an SI prefix (femto to
+ * tera); for other precisions use the base_unit or scaled form.
+ *
+ * @code
+ * to_string(kilohertz(433));              // "433kHz"
+ * to_string(millihertz(1500));            // "1500mHz"
+ * to_string(frequency<double>(1e6));      // "1000000Hz"
+ * to_string(frequency<double, std::kilo>(2.5)); // "2.5kHz"
+ * @endcode
  */
 template<typename Rep, typename Precision>
-    requires(!treat_as_inexact_v<Rep>)
 std::string to_string(const frequency<Rep, Precision>& f) {
     using precision = typename frequency<Rep, Precision>::precision;
     static_assert(_si_prefix_v<precision> != nullptr, "frequency: precision has no SI prefix");
-    return std::to_string(f.count()) + _si_prefix_v<precision> + "Hz";
+    return _count_string(f.count()) + _si_prefix_v<precision> + "Hz";
+}
+
+/**
+ * @brief Converts a frequency to a string in hertz; see base_unit.
+ *
+ * Available for every precision.
+ *
+ * @code
+ * to_string(millihertz(1500), base_unit);  // "1.5Hz"
+ * @endcode
+ */
+template<typename Rep, typename Precision>
+std::string to_string(const frequency<Rep, Precision>& f, base_unit_t) {
+    const _display d = _base_unit_display(f);
+    return _fixed_string(d.value) + d.prefix + "Hz";
+}
+
+/**
+ * @brief Converts a frequency to a string with an SI prefix scaled to its
+ * magnitude; see scaled.
+ *
+ * Available for every precision.
+ *
+ * @code
+ * to_string(megahertz(2400), scaled);  // "2.4GHz"
+ * @endcode
+ */
+template<typename Rep, typename Precision>
+std::string to_string(const frequency<Rep, Precision>& f, scaled_t) {
+    const _display d = _scaled_display(f);
+    return _fixed_string(d.value) + d.prefix + "Hz";
 }
 
 } // namespace freq
@@ -1207,22 +1464,54 @@ public:
 
 #if CONFIG_FREQUENCY_STD_FORMAT
 // "{}" prints the exact stored count with a precision-qualified unit
-// (kilohertz(433) -> "433kHz"). A non-empty spec is applied to the value in
-// hertz (as double): std::format("{:.1f}", millihertz(1500)) == "1.5Hz".
+// (kilohertz(433) -> "433kHz"; floating-point counts in the shortest fixed
+// notation that round-trips, as to_string does: frequency<double>(1e6) ->
+// "1000000Hz", never "1e+06Hz"). A non-empty spec controls only how the number
+// is rendered (as double), never the unit, so both forms use the same unit:
+// std::format("{:.1f}", millihertz(1500)) == "1500.0mHz".
+//
+// The unit changes only when the spec opts in with a single leading marker
+// letter; the rest of the spec is then handled as above:
+// - 'b' (base unit, see freq::base_unit) shows the value in hertz:
+//   std::format("{:b.1f}", millihertz(1500)) == "1.5Hz".
+// - 's' (scaled, see freq::scaled) shows the value with the SI prefix suited
+//   to its magnitude: std::format("{:s}", megahertz(2400)) == "2.4GHz".
+// With 'b' or 's' and nothing after the marker, the value is rendered in the
+// shortest fixed notation that round-trips (never scientific), exactly as by
+// to_string(f, freq::base_unit) or to_string(f, freq::scaled):
+// std::format("{:b}", millihertz(24)) == "0.024Hz".
+//
+// A spec starting with 'b' or 's' is always a marker, so these letters cannot
+// be the fill character of a spec that starts with a fill ("{:s>10.1f}" is the
+// marker followed by ">10.1f").
+//
+// A precision with no SI prefix (e.g. std::deci) has no unit of its own: "{}"
+// is a format error (a compile error for a constant format string), and a spec
+// without a marker renders the value in hertz, as 'b' does:
+// std::format("{:.1f}", frequency<int64_t, std::deci>(225)) == "22.5Hz".
 template<typename Rep, typename Precision>
 struct formatter<freq::frequency<Rep, Precision>> {
 private:
+    enum class _unit_form { own, base, scaled };
+
     using _precision = typename freq::frequency<Rep, Precision>::precision;
     static constexpr const char* _prefix = freq::_si_prefix_v<_precision>;
     std::formatter<double> _num;
     bool _has_spec = false;
+    _unit_form _form = _unit_form::own;
 
 public:
     constexpr auto parse(format_parse_context& ctx) {
         auto it = ctx.begin();
+        if (it != ctx.end() && (*it == 'b' || *it == 's')) {
+            _form = *it == 'b' ? _unit_form::base : _unit_form::scaled;
+            ctx.advance_to(++it);
+        }
         if (it == ctx.end() || *it == '}') {
             if constexpr (_prefix == nullptr) {
-                freq::_format_error("frequency: precision has no SI prefix; use an explicit format spec");
+                if (_form == _unit_form::own) {
+                    freq::_format_error("frequency: precision has no SI prefix; use an explicit format spec");
+                }
             }
             return it;
         }
@@ -1232,14 +1521,29 @@ public:
 
     template<typename FormatContext>
     auto format(const freq::frequency<Rep, Precision>& f, FormatContext& ctx) const {
-        if (_has_spec) {
-            double hz = static_cast<double>(f.count()) * _precision::num / _precision::den;
-            auto out = _num.format(hz, ctx);
+        // A precision with no SI prefix renders its own form in hertz.
+        if (_form != _unit_form::own || _prefix == nullptr) {
+            const freq::_display d =
+                _form == _unit_form::scaled ? freq::_scaled_display(f) : freq::_base_unit_display(f);
+            auto out =
+                _has_spec ? _num.format(d.value, ctx) : std::format_to(ctx.out(), "{}", freq::_fixed_string(d.value));
+            out = freq::_format_append(out, d.prefix);
             return freq::_format_append(out, "Hz");
         }
-        auto out = std::format_to(ctx.out(), "{}", f.count());
-        out = freq::_format_append(out, _prefix);
-        return freq::_format_append(out, "Hz");
+        if constexpr (_prefix != nullptr) {
+            auto out = ctx.out();
+            if (_has_spec) {
+                out = _num.format(static_cast<double>(f.count()), ctx);
+            } else if constexpr (std::floating_point<Rep>) {
+                out = std::format_to(out, "{}", freq::_fixed_string(f.count()));
+            } else {
+                out = std::format_to(out, "{}", f.count());
+            }
+            out = freq::_format_append(out, _prefix);
+            return freq::_format_append(out, "Hz");
+        } else {
+            return ctx.out();
+        }
     }
 };
 #endif

@@ -29,7 +29,7 @@ jobs:
     name: ${{ matrix.os }} / ${{ matrix.compiler }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install GCC (Linux)
         if: matrix.os == 'ubuntu-latest' && startsWith(matrix.compiler, 'g++')
@@ -51,7 +51,7 @@ jobs:
 
       - name: Configure (Windows)
         if: matrix.os == 'windows-latest'
-        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON
+        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/utf-8 /EHsc"
 
       - name: Build
         run: cmake --build build --config Release
