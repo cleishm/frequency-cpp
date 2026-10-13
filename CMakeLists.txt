@@ -7,7 +7,7 @@ if(ESP_PLATFORM)
 endif()
 
 project(frequency
-    VERSION 1.3.0
+    VERSION 1.3.1
     DESCRIPTION "Type-safe frequency handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/frequency-cpp"
     LANGUAGES CXX
@@ -20,6 +20,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Main library target (header-only)
 add_library(frequency INTERFACE)
 add_library(frequency::frequency ALIAS frequency)
+
+# The headers contain UTF-8 unit symbols; MSVC needs /utf-8 to read them correctly.
+target_compile_options(frequency INTERFACE "$<$<CXX_COMPILER_ID:MSVC>:/utf-8>")
 
 target_include_directories(frequency INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
