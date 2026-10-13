@@ -48,12 +48,20 @@ int main() {
     check(std::format("{}", megahertz(868)), "868MHz", "{} megahertz");
 
     // Formatting with an explicit spec.
-    check(std::format("{:.1f}", millihertz(1500)), "1.5Hz", "{:.1f} millihertz");
-    check(std::format("{:.1f}", kilohertz(433)), "433000.0Hz", "{:.1f} kilohertz");
+    check(std::format("{:.1f}", millihertz(1500)), "1500.0mHz", "{:.1f} millihertz");
+    check(std::format("{:.1f}", kilohertz(433)), "433.0kHz", "{:.1f} kilohertz");
 
-    // A precision with no SI prefix is still usable with an explicit spec.
+    // Unit markers.
+    check(std::format("{:b}", millihertz(1500)), "1.5Hz", "{:b} millihertz");
+    check(std::format("{:b.1f}", kilohertz(433)), "433000.0Hz", "{:b.1f} kilohertz");
+    check(std::format("{:s}", megahertz(2400)), "2.4GHz", "{:s} megahertz");
+    check(std::format("{:s.1f}", millihertz(33)), "33.0mHz", "{:s.1f} millihertz");
+
+    // A precision with no SI prefix is still usable with an explicit spec or a
+    // marker.
     using decihertz = frequency<int64_t, std::deci>;
     check(std::format("{:.1f}", decihertz(225)), "22.5Hz", "{:.1f} decihertz");
+    check(std::format("{:s}", decihertz(5)), "500mHz", "{:s} decihertz");
 
     if (failures != 0) {
         std::printf("%d check(s) failed\n", failures);

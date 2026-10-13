@@ -28,7 +28,7 @@ include(FetchContent)
 FetchContent_Declare(
     frequency
     GIT_REPOSITORY https://github.com/cleishm/frequency-cpp.git
-    GIT_TAG v1.0.0
+    GIT_TAG v1.3.0
 )
 FetchContent_MakeAvailable(frequency)
 
@@ -36,6 +36,9 @@ target_link_libraries(your_target PRIVATE frequency::frequency)
 ```
 
 ### vcpkg
+
+The library is available as the community-maintained `cleishm-frequency-cpp` port in
+[microsoft/vcpkg](https://github.com/microsoft/vcpkg); new releases reach it after a short delay:
 
 ```bash
 vcpkg install cleishm-frequency-cpp
@@ -89,11 +92,12 @@ if (kilohertz{1} == hertz{1000}) {
 // String conversion
 std::string s = to_string(kilohertz(80));  // "80kHz"
 
-// Formatting: a floating-point format spec renders in hertz, while the
-// default renders the exact stored value.
+// Formatting: always in the type's own unit unless a marker asks otherwise
 millihertz reading{1500};
-std::string disp = std::format("{:.1f}", reading);  // "1.5Hz"
 std::string raw  = std::format("{}", reading);      // "1500mHz" (exact stored value)
+std::string disp = std::format("{:.1f}", reading);  // "1500.0mHz"
+std::string hz   = std::format("{:b.1f}", reading); // "1.5Hz" (base unit)
+std::string sc   = std::format("{:s}", 2400_MHz);    // "2.4GHz" (scaled)
 ```
 
 ## Frequency Types
@@ -120,6 +124,68 @@ using namespace frequency_literals;
 5_GHz      // gigahertz(5)
 1_THz      // terahertz(1)
 ```
+
+## Formatting
+
+`to_string()` and `std::format` show a frequency in its own unit: `{}` prints the exact stored count
+followed by the precision's SI-prefixed unit, and a format spec such as `{:.1f}` changes only how the
+number is rendered (as a `double`), never the unit.
+
+```cpp
+to_string(kilohertz(433));                // "433kHz"
+std::format("{}", millihertz(1500));      // "1500mHz"
+std::format("{:.1f}", millihertz(1500));  // "1500.0mHz"
+std::format("{:>8.1f}", hertz(50));       // "    50.0Hz"
+```
+
+To show a different unit, start the spec with a single marker letter; the rest of the spec is the
+normal `std::format` spec for a `double`:
+
+| Marker | Unit | Example |
+|--------|------|---------|
+| *(none)* | the type's own unit | `std::format("{:.1f}", millihertz(1500))` → `"1500.0mHz"` |
+| `b` | base unit (hertz) | `std::format("{:b.1f}", millihertz(1500))` → `"1.5Hz"` |
+| `s` | scaled: the largest SI prefix (fHz … THz) in which the magnitude is at least 1, else fHz; zero in Hz | `std::format("{:s}", megahertz(2400))` → `"2.4GHz"` |
+
+```cpp
+std::format("{:b}", kilohertz(433));       // "433000Hz"
+std::format("{:s.1f}", millihertz(33));    // "33.0mHz"
+std::format("{:s}", hertz(-2500));         // "-2.5kHz"
+std::format("{:s*>8.2f}", hertz(1500));    // "****1.50kHz"
+
+// The same forms without <format>:
+to_string(millihertz(1500), base_unit);    // "1.5Hz"
+to_string(megahertz(2400), scaled);        // "2.4GHz"
+```
+
+Notes:
+- A spec that starts with `b` or `s` is always a marker, so those letters cannot be used as the fill
+  character at the start of a spec (`{:s>8}` is the `s` marker followed by `>8`).
+- Values are converted to `double` for the markers, so they work with integer representations too.
+- With no spec (`{}` on a floating-point frequency, `{:b}`, `{:s}`, and every `to_string`), values are
+  rendered in the shortest fixed notation that round-trips: `frequency<double>(1e6)` → `"1000000Hz"`,
+  never `"1e+06Hz"`.
+- A precision with no SI prefix (e.g. `frequency<int64_t, std::deci>`) has no unit of its own: `{}` and
+  `to_string(f)` do not compile for it, and a spec without a marker renders the value in hertz
+  (`{:.1f}` → `"22.5Hz"`). The `b` and `s` markers and tags work for every precision.
+- To show a value in another unit, cast it, e.g. `std::format("{:.3f}", frequency<double, std::mega>(f))`.
+
+## Period and Wavelength
+
+```cpp
+using namespace std::chrono;
+
+hertz(1000).period<milliseconds>();               // 1 ms
+megahertz(1).period<duration<double, std::micro>>(); // 1.0 µs
+
+// Wavelength takes a length type: anything chrono-shaped (count(), rep, period
+// relative to meters) other than a std::chrono::duration, such as the lengths
+// of spatial (https://github.com/cleishm/spatial-cpp).
+(2400_MHz).wavelength<spatial::millimeters>();      // 124 mm (speed of light)
+hertz(440).wavelength<spatial::millimeters>(343.0); // 779 mm (sound in air)
+```
+
+`period<D>()` accepts only `std::chrono::duration` types, and `wavelength<L>()` rejects them.
 
 ## Conversion Rules
 
