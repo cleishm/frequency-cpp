@@ -28,7 +28,7 @@ include(FetchContent)
 FetchContent_Declare(
     frequency
     GIT_REPOSITORY https://github.com/cleishm/frequency-cpp.git
-    GIT_TAG v1.3.0
+    GIT_TAG v1.3.1
 )
 FetchContent_MakeAvailable(frequency)
 

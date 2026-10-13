@@ -51,7 +51,7 @@ jobs:
 
       - name: Configure (Windows)
         if: matrix.os == 'windows-latest'
-        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/utf-8 /EHsc"
+        run: cmake -B build -DFREQUENCY_BUILD_TESTS=ON -DCMAKE_CXX_FLAGS="/EHsc"
 
       - name: Build
         run: cmake --build build --config Release
