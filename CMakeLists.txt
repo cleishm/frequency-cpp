@@ -1,17 +1,32 @@
 cmake_minimum_required(VERSION 3.14)
 
+# This library has been superseded by quanta. Consumers are warned when it is configured
+# as a subproject or an ESP-IDF component (below) or found as an installed package
+# (cmake/frequencyConfig.cmake.in), but not when this is the top-level project.
+set(FREQUENCY_DEPRECATION_MESSAGE "frequency-cpp is no longer maintained and has been superseded by quanta (https://github.com/cleishm/quanta-cpp), which includes it as quanta::frequency; on ESP-IDF use the component cleishm/quanta. See https://github.com/cleishm/quanta-cpp#migrating-from-thermo-cpp-frequency-cpp-electro-cpp-and-spatial-cpp")
+
 # ESP-IDF component support (must be before project() for script mode compatibility)
 if(ESP_PLATFORM)
+    # IDF also evaluates this file in script mode to expand component requirements
+    # (CMAKE_BUILD_EARLY_EXPANSION); warn only during the real configure.
+    if(NOT CMAKE_BUILD_EARLY_EXPANSION)
+        message(DEPRECATION "${FREQUENCY_DEPRECATION_MESSAGE}")
+    endif()
     idf_component_register(INCLUDE_DIRS "include")
     return()
 endif()
 
 project(frequency
-    VERSION 1.3.1
+    VERSION 1.3.2
     DESCRIPTION "Type-safe frequency handling library modeled after std::chrono"
     HOMEPAGE_URL "https://github.com/cleishm/frequency-cpp"
     LANGUAGES CXX
 )
+
+# Not PROJECT_IS_TOP_LEVEL, which needs CMake 3.21.
+if(NOT CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
+    message(DEPRECATION "${FREQUENCY_DEPRECATION_MESSAGE}")
+endif()
 
 option(FREQUENCY_BUILD_TESTS "Build tests" ${frequency_IS_TOP_LEVEL})
 
